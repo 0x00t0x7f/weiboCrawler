@@ -13,7 +13,7 @@ from functools import wraps
 import sys
 # from multiprocessing import Pool, cpu_count
 
-from proj1.dbtools import MySQLEcho
+from proj1.dbtools import SchedDB
 from proj1.random_proxy import RandomProxy, ProxyServerError
 
 MAX_SIZE = 1000
@@ -25,6 +25,7 @@ TOTAL_NUMS = 0  # 评论条数
 SYNC_WAIT_LOCK = True  # 同步两个线程之间的状态-有一方退出则另一方也退出-此标志不可改动
 IS_SURE_USE_PROXY = False
 PROXY_TIMEOUT_TIMER = None  # 判断代理是否请求超时
+HOT_LOAD = True
 #######################################
 
 # IP_FORBID = False  # IP是否被禁
@@ -43,7 +44,7 @@ def get_proxy_request(url):
 	proxies = {"http": None, "https": None}
 	headers = {"user-agent": random.choice(user_agent),
 	"host": "weibo.com",
-	"referer": "https://weibo.com/1648007681/yark9qWbM?type=comment",
+	"referer": "https://weibo.com/1496852380/GCcaiqqZ8?filter=hot&root_comment_id=0&type=comment",
 	"cookie": cookies}
 
 	global STABLE_PROXY
@@ -110,9 +111,9 @@ def get_comment_from_url(url):
 	except AttributeError as ex:
 		pass
 	except requests.exceptions.ProxyError:
-		swith_proxy
+		swith_proxy()
 	except BaseException as ex:
-		print(ex)
+		pass
 
 
 def swith_proxy():
@@ -164,14 +165,21 @@ def parse_html_to_content(soup):
 
 def start_request():
 	global TOTAL_NUMS, SYNC_WAIT_LOCK
-	for current_page in itertools.count(1):  # 46600 ~ 50970 | 56700 (入库失败居多) 63900
+	for current_page in itertools.count(2990):  # 46600 ~ 50970 | 56700 (入库失败居多) 63900
 		if SYNC_WAIT_LOCK:
-			current_url = "https://weibo.com/aj/v6/comment/big?ajwvr=6&id=3424883176420210&page={0}&_rnd={1}".format(
+			current_url = "https://weibo.com/aj/v6/comment/big?ajwvr=6&id=4291032306300262&root_comment_max_id=714012517687086" \
+			"&root_comment_max_id_type=0&root_comment_ext_param=&page={0}&filter=hot&sum_comment_number=17349" \
+			"&filter_tips_before=1&from=singleWeiBo&__rnd={1}".format(
 				current_page, int(time.time() * 1000))
 			if not (current_page % 50):
 				time.sleep(random.randint(2, 5))
 			is_comment = None
 			while not is_comment:
+				if HOT_LOAD:
+					current_url_data = hot_load(current_url)
+					while not current_url_data:
+						current_url_data = hot_load(current_url)
+					current_url = "https://weibo.com/aj/v6/comment/big?ajwvr=6&from=singleWeiBo&" + current_url_data +"&__rnd={}".format(int(time.time() * 1000))
 				is_comment = get_comment_from_url(current_url)
 			if current_page >= is_comment[1] and not is_comment[0]:
 				print("TASK DONE! 一共爬取记录 %s页\t%s条." % (current_page, TOTAL_NUMS))
@@ -185,9 +193,46 @@ def start_request():
 		SYNC_WAIT_LOCK = False
 
 
+def hot_load(fake_url):
+	global STABLE_PROXY, PROXY_TIMEOUT_TIMER, IS_SURE_USE_PROXY
+	try:
+		response = get_proxy_request(fake_url)
+		if response.status_code == 200:
+			if PROXY_TIMEOUT_TIMER:  PROXY_TIMEOUT_TIMER = None
+			datas = response.json()
+			if datas["code"] == "100000":
+				html = datas["data"]["html"]
+				try:
+					soup = BeautifulSoup(html, "lxml")
+				except:
+					raise ValueError("解析失败 %s skip.." % (traceback.format_exc()))
+				else:
+					return soup.find("a", {"action-type": "click_more_comment"})["action-data"]
+			else:
+				raise IOError("错误的响应码: %s cause: %s" % (datas["code"], datas["msg"]))
+		elif response.status_code == 414:
+			STABLE_PROXY = None
+			print(requests.ConnectionError("请求失败 (414: IP被禁)-切换: %s" % (fake_url)))
+			IS_SURE_USE_PROXY = not IS_SURE_USE_PROXY
+			PROXY_TIMEOUT_TIMER = time.time()
+		elif response.status_code == 400:
+			print(requests.ConnectionError("无效的代理 (400): %s" %(fake_url)))
+			STABLE_PROXY = None
+
+			# 判断无效的代理是否超过5min, 微博5min内会解禁被封的IP-可以切回原来的IP
+			swith_proxy()
+
+	except AttributeError as ex:
+		pass
+	except requests.exceptions.ProxyError:
+		swith_proxy()
+	except BaseException as ex:
+		pass
+
+
 def reader():
 	insert_list = []
-	mysql = MySQLEcho.get_conn()
+	mysql = SchedDB.get_conn()
 	global SYNC_WAIT_LOCK
 	have_comment = True
 	while have_comment and SYNC_WAIT_LOCK:
@@ -195,7 +240,7 @@ def reader():
 			insert_list.append(q.get(timeout=MAX_TIMEOUT))
 			if len(insert_list) > 50:
 				# insert db
-				sql = """INSERT INTO user_comment (comment_id, homepage, nickname, comment, comment_time) VALUES """
+				sql = """INSERT INTO cuiyongyuan_dahongzha (comment_id, homepage, nickname, comment, comment_time) VALUES """
 				insert_list = rinse_data(insert_list)
 				if insert_list:
 					mysql.execute_batch(sql, insert_list)
@@ -210,7 +255,7 @@ def reader():
 			print("其他错误 %s" % (traceback.format_exc()))
 	else:
 		try:
-			sql = """INSERT INTO user_comment (comment_id, homepage, nickname, comment, comment_time) VALUES """
+			sql = """INSERT INTO cuiyongyuan_dahongzha (comment_id, homepage, nickname, comment, comment_time) VALUES """
 			insert_list = rinse_data(insert_list)
 			if insert_list:
 				mysql.execute_batch(sql, insert_list)
@@ -222,7 +267,7 @@ def reader():
 
 
 def primary_error_handle(insert_list, mysql):
-	sql = "INSERT INTO user_comment (comment_id, homepage, nickname, comment, comment_time) VALUES (%s, %s, %s, %s, %s)"
+	sql = "INSERT INTO cuiyongyuan_dahongzha (comment_id, homepage, nickname, comment, comment_time) VALUES (%s, %s, %s, %s, %s)"
 	for item in insert_list:
 		params = None
 		try:
