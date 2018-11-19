@@ -13,7 +13,7 @@ from functools import wraps
 import sys
 # from multiprocessing import Pool, cpu_count
 
-from proj1.dbtools import SchedDB
+from proj1.dbtools import MySQLEcho
 from proj1.random_proxy import RandomProxy, ProxyServerError
 
 MAX_SIZE = 1000
@@ -232,7 +232,7 @@ def hot_load(fake_url):
 
 def reader():
 	insert_list = []
-	mysql = SchedDB.get_conn()
+	mysql = MySQLEcho.get_conn()
 	global SYNC_WAIT_LOCK
 	have_comment = True
 	while have_comment and SYNC_WAIT_LOCK:
