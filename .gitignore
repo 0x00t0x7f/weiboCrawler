@@ -1,0 +1,5 @@
+# Project ignore List.
+
+*.db
+*.pyc
+*.sql

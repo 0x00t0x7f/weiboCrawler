@@ -1,4 +1,6 @@
 import os
+import sys
+import yaml
 import random
 import time
 import pymysql
@@ -6,13 +8,13 @@ import queue
 import traceback
 import threading
 import itertools
-from bs4 import BeautifulSoup
 import requests
 import itertools
 from functools import wraps
-import sys
+from bs4 import BeautifulSoup
 # from multiprocessing import Pool, cpu_count
 
+from utils import *
 from proj1.dbtools import MySQLEcho
 from proj1.random_proxy import RandomProxy, ProxyServerError
 
@@ -22,10 +24,10 @@ q = queue.Queue(MAX_SIZE)
 TOTAL_NUMS = 0  # 评论条数
 
 ############### 重要配置 ################
-SYNC_WAIT_LOCK = True  # 同步两个线程之间的状态-有一方退出则另一方也退出-此标志不可改动
-IS_SURE_USE_PROXY = False
-PROXY_TIMEOUT_TIMER = None  # 判断代理是否请求超时
-HOT_LOAD = True
+SYNC_WAIT_LOCK = configPools.SYNC_WAIT_LOCK  # 同步两个线程之间的状态-有一方退出则另一方也退出-此标志不可改动
+IS_SURE_USE_PROXY = configPools.IS_SURE_USE_PROXY
+PROXY_TIMEOUT_TIMER = configPools.PROXY_TIMEOUT_TIMER  # 判断代理是否请求超时
+HOT_LOAD = configPools.HOT_LOAD
 #######################################
 
 # IP_FORBID = False  # IP是否被禁
