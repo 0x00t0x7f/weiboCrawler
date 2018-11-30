@@ -1,3 +1,4 @@
+# -*- coding:utf -*-
 """
 新浪微博评论爬虫-获取代理
 written by kuing on 2018/11/14
