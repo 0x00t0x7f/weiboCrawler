@@ -3,10 +3,10 @@
 新浪微博评论爬虫-获取代理
 written by kuing on 2018/11/14
 """
-import requests
-import random
-from bs4 import BeautifulSoup
 import re
+import random
+import requests
+from bs4 import BeautifulSoup
 
 
 class ProxyServerError(Exception):
