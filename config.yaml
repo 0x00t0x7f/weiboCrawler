@@ -1,6 +1,6 @@
 # 启动爬虫-重要配置
 
 SYNC_WAIT_LOCK: true  # 同步两个线程之间的状态-有一方退出则另一方也退出-此标志不可改动
-IS_SURE_USE_PROXY: true
+IS_SURE_USE_PROXY: false
 PROXY_TIMEOUT_TIMER: ~  # 判断代理是否请求超时
 HOT_LOAD: true

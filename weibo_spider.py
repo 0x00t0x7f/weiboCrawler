@@ -1,10 +1,11 @@
+# coding=utf-8
+from __future__ import absolute_import
 import os
 import sys
+import six
 import yaml
 import random
 import time
-import pymysql
-import queue
 import traceback
 import threading
 import itertools
@@ -12,11 +13,14 @@ import requests
 import itertools
 from functools import wraps
 from bs4 import BeautifulSoup
+try:  import pymysql
+except ImportError: pass
+if six.PY2:  import Queue as queue
+elif six.PY3: import queue
 # from multiprocessing import Pool, cpu_count
 
 from utils import *
-from proj1.dbtools import MySQLEcho
-from proj1.random_proxy import RandomProxy, ProxyServerError
+from random_proxy import RandomProxy, ProxyServerError
 
 MAX_SIZE = 1000
 MAX_TIMEOUT = 600
@@ -233,6 +237,7 @@ def hot_load(fake_url):
 
 
 def reader():
+	from .dbtools import MySQLEcho
 	insert_list = []
 	mysql = MySQLEcho.get_conn()
 	global SYNC_WAIT_LOCK
@@ -268,6 +273,27 @@ def reader():
 	SYNC_WAIT_LOCK = False
 
 
+def data_home(is_save_db=False):
+	"""
+	@is_save_db: save to database if true else output screen.
+	"""
+	if not is_save_db:
+		pprint = six.print_
+		global SYNC_WAIT_LOCK
+		have_comment = True
+		while have_comment and SYNC_WAIT_LOCK:
+			try:
+				single_comment = q.get(timeout=MAX_TIMEOUT)
+				pprint(single_comment)
+			except queue.Empty:
+				have_comment = False
+			except Exception as err:
+				pprint(ex)
+		SYNC_WAIT_LOCK = False
+	else:
+		reader()	
+
+			
 def primary_error_handle(insert_list, mysql):
 	sql = "INSERT INTO cuiyongyuan_dahongzha (comment_id, homepage, nickname, comment, comment_time) VALUES (%s, %s, %s, %s, %s)"
 	for item in insert_list:
@@ -320,7 +346,7 @@ def timer(msg=None):
 
 @timer("入库完毕!")
 def launch_weibo_spider():
-	funcs = [start_request, reader]
+	funcs = [start_request, data_home]
 	loops = len(funcs)
 
 	threads = []
