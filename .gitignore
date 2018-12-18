@@ -4,3 +4,7 @@
 *.pyc
 *.sql
 dbtools.py
+download/
+logs/
+tests/
+
