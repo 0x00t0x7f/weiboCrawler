@@ -1,26 +1,23 @@
 # coding=utf-8
 from __future__ import absolute_import
-import os
-import sys
 import six
-import yaml
 import random
 import time
 import traceback
 import threading
-import itertools
 import requests
 import itertools
 from functools import wraps
 from bs4 import BeautifulSoup
-try:  import pymysql
+try: import pymysql
 except ImportError: pass
-if six.PY2:  import Queue as queue
+if six.PY2: import Queue as queue
 elif six.PY3: import queue
 # from multiprocessing import Pool, cpu_count
 
-from utils import *
-from random_proxy import RandomProxy, ProxyServerError
+from utils.base import conf
+from config.user_agent import pools
+from utils.random_proxy import RandomProxy, ProxyServerError
 
 MAX_SIZE = 1000
 MAX_TIMEOUT = 600
@@ -28,23 +25,17 @@ q = queue.Queue(MAX_SIZE)
 TOTAL_NUMS = 0  # 评论条数
 
 ############### 重要配置 ################
-SYNC_WAIT_LOCK = configPools.SYNC_WAIT_LOCK  # 同步两个线程之间的状态-有一方退出则另一方也退出-此标志不可改动
-IS_SURE_USE_PROXY = configPools.IS_SURE_USE_PROXY
-PROXY_TIMEOUT_TIMER = configPools.PROXY_TIMEOUT_TIMER  # 判断代理是否请求超时
-HOT_LOAD = configPools.HOT_LOAD
+SYNC_WAIT_LOCK = conf.SYNC_WAIT_LOCK
+IS_SURE_USE_PROXY = conf.IS_SURE_USE_PROXY
+PROXY_TIMEOUT_TIMER = conf.PROXY_TIMEOUT_TIMER
+HOT_LOAD = conf.HOT_LOAD
 #######################################
 
-# IP_FORBID = False  # IP是否被禁
 PROXY_SERVER = RandomProxy()
 STABLE_PROXY = None
+user_agent = pools
+cookies = conf.COOKIE
 
-user_agent = ["Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko",
-              "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:62.0) Gecko/20100101 Firefox/62.0",
-              "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36",
-              "Mozilla/5.0 (Windows NT 10.0; WOW64; rv:50.0) Gecko/20100101 Firefox/50.0",
-              "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.21 (KHTML, like Gecko) Mwendo/1.1.5 Safari/537.21"]
-
-cookies = "your cookie"
 
 def get_proxy_request(url):
 	proxies = {"http": None, "https": None}
@@ -237,7 +228,7 @@ def hot_load(fake_url):
 
 
 def reader():
-	from .dbtools import MySQLEcho
+	from utils.dbtools import MySQLEcho
 	insert_list = []
 	mysql = MySQLEcho.get_conn()
 	global SYNC_WAIT_LOCK
@@ -288,7 +279,7 @@ def data_home(is_save_db=False):
 			except queue.Empty:
 				have_comment = False
 			except Exception as err:
-				pprint(ex)
+				pprint(err)
 		SYNC_WAIT_LOCK = False
 	else:
 		reader()	

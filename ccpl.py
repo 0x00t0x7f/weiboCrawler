@@ -5,8 +5,8 @@ from bs4 import BeautifulSoup
 import requests
 from functools import wraps
 
-from proj1.dbtools import MySQLEcho
-from proj1.random_proxy import RandomProxy, ProxyServerError
+from utils.dbtools import MySQLEcho
+from utils.random_proxy import RandomProxy, ProxyServerError
 
 MAX_SIZE = 1000
 MAX_TIMEOUT = 600
